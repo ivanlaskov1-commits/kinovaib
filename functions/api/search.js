@@ -8,6 +8,7 @@ const ALIASES = {
   "До восхода солнца": "Before Sunrise",
   "Влюблённый Шекспир": "Shakespeare in Love",
   "Супербэд": "Superbad",
+  "Мулхолланд Драйв": "Mulholland Drive",
 };
 
 const yr = (m) => parseInt((m.release_date || "").slice(0, 4), 10) || 0;
