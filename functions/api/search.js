@@ -5,6 +5,9 @@ import { tmdb, json } from "./_tmdb.js";
 const ALIASES = {
   "Паддингтон 2": "Paddington 2",
   "Паддингтон": "Paddington",
+  "До восхода солнца": "Before Sunrise",
+  "Влюблённый Шекспир": "Shakespeare in Love",
+  "Супербэд": "Superbad",
 };
 
 const yr = (m) => parseInt((m.release_date || "").slice(0, 4), 10) || 0;
@@ -43,7 +46,7 @@ export async function onRequestGet({ request, env }) {
         }
       }
     }
-    return json({ none: true });
+    return json({ none: true }, 404);
   } catch (e) {
     return json({ error: "upstream" }, 502);
   }
