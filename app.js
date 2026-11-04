@@ -629,7 +629,8 @@ function apiGet(url) {
 function findFilm(t, y) {
   var k = t + "|" + y;
   if (!tmdbCache[k]) {
-    tmdbCache[k] = apiGet("/api/search?title=" + encodeURIComponent(t) + "&year=" + y).catch(function () { return { none: true }; });
+    var o = (typeof ORIG !== "undefined" && ORIG[t]) ? "&o=" + encodeURIComponent(ORIG[t]) : "";
+    tmdbCache[k] = apiGet("/api/search?title=" + encodeURIComponent(t) + "&year=" + y + o).catch(function () { return { none: true }; });
   }
   return tmdbCache[k];
 }

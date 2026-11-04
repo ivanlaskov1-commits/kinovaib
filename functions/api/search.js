@@ -8,13 +8,14 @@ const ALIASES = {
   "До восхода солнца": "Before Sunrise",
   "Влюблённый Шекспир": "Shakespeare in Love",
   "Супербэд": "Superbad",
-  "Мулхолланд Драйв": "Mulholland Drive",
 };
 
 const yr = (m) => parseInt((m.release_date || "").slice(0, 4), 10) || 0;
 
-function variants(title) {
-  const out = [title];
+function variants(title, orig) {
+  const out = [];
+  if (orig) out.push(orig);
+  out.push(title);
   if (ALIASES[title]) out.push(ALIASES[title]);
   const clean = title.replace(/[«»"“”:;,.!?]/g, " ").replace(/\s+/g, " ").trim();
   if (clean && clean !== title) out.push(clean);
@@ -35,10 +36,11 @@ export async function onRequestGet({ request, env }) {
   const u = new URL(request.url);
   const title = (u.searchParams.get("title") || "").slice(0, 120);
   const year = parseInt(u.searchParams.get("year"), 10) || 0;
+  const orig = (u.searchParams.get("o") || "").slice(0, 120);
   if (!title) return json({ error: "no title" }, 400);
   try {
-    for (const q of variants(title)) {
-      for (const language of ["ru-RU", "en-US"]) {
+    for (const q of variants(title, orig)) {
+      for (const language of q === orig ? ["en-US", "ru-RU"] : ["ru-RU", "en-US"]) {
         for (const y of [year, 0]) {
           const list = await lookup(env, q, language, y);
           const near = list.filter((m) => !year || Math.abs(yr(m) - year) <= 1);
