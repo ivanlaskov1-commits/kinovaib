@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>Проверка постеров</title>
+<style>
+  body { margin: 0; padding: 2rem 1rem; background: #14110f; color: #eee6dc; font: 16px/1.5 system-ui, sans-serif; }
+  main { max-width: 42rem; margin: 0 auto; display: grid; gap: 1rem; }
+  h1 { font-size: 1.4rem; margin: 0; }
+  button { min-height: 2.75rem; padding: 0 1.2rem; border-radius: 1.4rem; border: 0; background: #e2b766; color: #1a1814; font: inherit; font-weight: 600; cursor: pointer; }
+  button:disabled { opacity: .5; cursor: default; }
+  progress { width: 100%; height: 0.8rem; }
+  textarea { width: 100%; min-height: 12rem; box-sizing: border-box; background: #1f1b17; color: inherit; border: 1px solid #3a342d; border-radius: .7rem; padding: .7rem; font: inherit; }
+  .ok { color: #7cc6b8; } .bad { color: #ff9c8a; }
+  p { margin: 0; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Проверка постеров</h1>
+  <p>Страница проходит по всем фильмам сайта и ищет их в TMDB. Это займёт 1–3 минуты. Не закрывайте вкладку.</p>
+  <div><button id="go" type="button">Запустить проверку</button></div>
+  <progress id="bar" value="0" max="1" hidden></progress>
+  <p id="stat"></p>
+  <div id="res" hidden>
+    <p>Не нашлись (скопируйте этот список и пришлите мне):</p>
+    <textarea id="out" readonly></textarea>
+    <p><button id="copy" type="button">Скопировать список</button></p>
+  </div>
+</main>
+<script src="data.js"></script>
+<script>
+(function () {
+  var go = document.getElementById("go"), bar = document.getElementById("bar"), stat = document.getElementById("stat");
+  var res = document.getElementById("res"), out = document.getElementById("out");
+
+  // Все фильмы сайта: основной список, подборки и страницы режиссёров, без повторов
+  function allTitles() {
+    var seen = {}, list = [];
+    function add(t, y) { if (!seen[t]) { seen[t] = 1; list.push({ t: t, y: y }); } }
+    FILMS.forEach(function (f) { add(f.t, f.y); });
+    COLLECTIONS.forEach(function (c) { c.films.forEach(function (f) { add(f[0], f[1]); }); });
+    DIRECTORS.forEach(function (d) { d.films.forEach(function (f) { add(f[0], f[1]); }); });
+    return list;
+  }
+
+  function check(item) {
+    var o = (typeof ORIG !== "undefined" && ORIG[item.t]) ? "&o=" + encodeURIComponent(ORIG[item.t]) : "";
+    var url = "/api/search?title=" + encodeURIComponent(item.t) + "&year=" + item.y + o;
+    function once() {
+      return fetch(url).then(function (r) {
+        if (r.status >= 500) throw new Error("server " + r.status);
+        return r.json().catch(function () { return {}; });
+      });
+    }
+    return once().catch(function () { return once(); }).then(function (d) { return !!(d && d.id && d.poster); }, function () { return null; });
+  }
+
+  go.addEventListener("click", function () {
+    go.disabled = true;
+    var items = allTitles(), done = 0, bad = [], errs = 0, next = 0;
+    bar.hidden = false; bar.max = items.length; bar.value = 0;
+    function worker() {
+      if (next >= items.length) return Promise.resolve();
+      var it = items[next++];
+      return check(it).then(function (ok) {
+        done++;
+        if (ok === false) bad.push(it); else if (ok === null) errs++;
+        bar.value = done;
+        stat.textContent = "Проверено " + done + " из " + items.length + ". Без постера: " + bad.length + (errs ? ", ошибок связи: " + errs : "");
+      }).then(worker);
+    }
+    var workers = [];
+    for (var i = 0; i < 4; i++) workers.push(worker());
+    Promise.all(workers).then(function () {
+      var ok = items.length - bad.length - errs;
+      stat.innerHTML = '<span class="ok">Найдено: ' + ok + ' из ' + items.length + '.</span> ' +
+        (bad.length ? '<span class="bad">Не найдено: ' + bad.length + '.</span>' : '<span class="ok">Все постеры находятся.</span>') +
+        (errs ? ' Ошибок связи: ' + errs + ' (запустите проверку ещё раз).' : '');
+      if (bad.length) {
+        out.value = bad.map(function (b) { return b.t + " (" + b.y + ")"; }).join("\n");
+        res.hidden = false;
+      }
+      go.disabled = false;
+      go.textContent = "Проверить ещё раз";
+    });
+  });
+
+  document.getElementById("copy").addEventListener("click", function () {
+    out.select();
+    try { navigator.clipboard.writeText(out.value); } catch (e) { document.execCommand("copy"); }
+    this.textContent = "Скопировано";
+  });
+})();
+</script>
+</body>
+</html>
